@@ -18,6 +18,7 @@
 
 #include "Worker.h"
 #include <runtime/local/vectorized/TaskQueues.h>
+#include <iostream>
 
 #include <spdlog/spdlog.h>
 
@@ -71,12 +72,20 @@ public:
         int startingQueue = targetQueue;
 
         Task* t = _q[targetQueue]->dequeueTask();
-
+        
         while( !isEOF(t) ) {
             //execute self-contained task
             if( _verbose )
                 ctx->logger->trace("WorkerCPU: executing task.");
+            t->Start();
             t->execute(_fid, _batchSize);
+            t->End();
+            t->Signature(std::to_string(this->_threadID));
+            // convert t->GetTrace().GetDuration() to string
+
+            std::string signature = "Comming from thread "+t->GetTrace().GetSignature() + " Task has been executed in  " + std::to_string(t->GetTrace().GetDuration()) + " mSeconds. " + "Start was: " + std::to_string(t->GetTrace().GetStart()) + " End was: " + std::to_string(t->GetTrace().GetEnd());
+            std::cout << signature << std::endl;
+            
             delete t;
             //get next tasks (blocking)
             t = _q[targetQueue]->dequeueTask();

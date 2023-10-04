@@ -21,6 +21,8 @@
 #include <runtime/local/kernels/EwBinaryMat.h>
 #include <runtime/local/vectorized/VectorizedDataSink.h>
 #include <runtime/local/context/DaphneContext.h>
+#include <runtime/local/measurement/Trace.h>
+#include <runtime/local/measurement/Traceable.h>
 #include <ir/daphneir/Daphne.h>
 
 #include <functional>
@@ -30,12 +32,15 @@
 using mlir::daphne::VectorSplit;
 using mlir::daphne::VectorCombine;
 
-class Task {
+class Task : public virtual Traceable {
 public:
     virtual ~Task() = default;
-
     virtual void execute(uint32_t fid, uint32_t batchSize) = 0;
     virtual uint64_t getTaskSize() = 0;
+    virtual void Start() override =0;
+    virtual void End() override =0;
+    virtual Trace GetTrace() override=0;
+    virtual void Signature(const std::string& signature) override=0;
 };
 
 // task for signaling closed input queue (no more tasks)
@@ -45,6 +50,14 @@ public:
     ~EOFTask() override = default;
     void execute(uint32_t fid, uint32_t batchSize) override {}
     uint64_t getTaskSize() override {return 0;}
+    void Start() override{}
+    void End() override{}
+
+    void Signature(const std::string& signature) override{}
+
+    Trace GetTrace() override {
+        return Trace();
+    }
 };
 
 template<class DT>
@@ -74,7 +87,9 @@ struct CompiledPipelineTaskData {
 };
 
 template<class DT>
-class CompiledPipelineTaskBase : public Task {
+class CompiledPipelineTaskBase : public Task{
+private:
+    Trace trace;
 protected:
     CompiledPipelineTaskData<DT> _data;
 
@@ -82,6 +97,22 @@ public:
     explicit CompiledPipelineTaskBase(CompiledPipelineTaskData<DT> data) : _data(data) {}
     void execute(uint32_t fid, uint32_t batchSize) override = 0;
     uint64_t getTaskSize() override = 0;
+
+    void Start() override {
+        trace.RecordStart(std::chrono::high_resolution_clock::now().time_since_epoch().count());
+    }
+
+    void End() override {
+        trace.RecordEnd(std::chrono::high_resolution_clock::now().time_since_epoch().count());
+    }
+
+    void Signature(const std::string& signature) override {
+        trace.RecordSignature(signature);
+    }
+
+    Trace GetTrace() override{
+        return trace;
+    }
 
 protected:
     bool isBroadcast(mlir::daphne::VectorSplit splitMethod, Structure *input) {

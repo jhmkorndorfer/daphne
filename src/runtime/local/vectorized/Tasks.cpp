@@ -183,7 +183,6 @@ uint64_t CompiledPipelineTask<CSRMatrix<VT>>::getTaskSize() {
 return _data._ru-_data._rl;
 }
 
-
 template class CompiledPipelineTask<DenseMatrix<double>>;
 template class CompiledPipelineTask<DenseMatrix<float>>;
 template class CompiledPipelineTask<DenseMatrix<int64_t>>;
