@@ -53,13 +53,13 @@ private:
         return actual_step+1;
     }
 public:
-    LoadPartitioning(int method, uint64_t tasks, uint64_t chunk, uint32_t workers, bool autochunk){
+    LoadPartitioning(int method, uint64_t tasks, uint64_t chunk, uint32_t workers, bool expertChunk){
         schedulingMethod = method;
         totalTasks = tasks;
         double tSize = (totalTasks+workers-1.0)/workers;
         mfscChunk = ceil(tSize*log(2.0)/log((1.0*tSize)));
         fissStages = getStages(totalTasks, workers);
-        if(!autochunk){    
+        if(!expertChunk){    
             chunkParam = chunk;
         }
         else{
@@ -67,7 +67,7 @@ public:
             int mul = log2(totalTasks/workers)*0.618; 
             chunkParam = (totalTasks)/((2<<mul)*workers);
             method=SS;
-           // std::cout<<"*********\nTotal tasks "<<totalTasks << " 2<<mul< "<< temp << " Total workers "<<workers<<" Automatic selection chunk parameter is " <<chunkParam<<std::endl;
+            // std::cout<<"*********\nTotal tasks "<<totalTasks << " Method: "<< method << " Total workers: "<<workers<<" Automatic selection chunk parameter is: " <<chunkParam<<std::endl;
         }
         totalWorkers = workers;
         remainingTasks = tasks;
