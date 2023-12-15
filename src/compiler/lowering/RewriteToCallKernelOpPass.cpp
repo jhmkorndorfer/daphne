@@ -18,9 +18,14 @@
 #include "ir/daphneir/Daphne.h"
 #include "ir/daphneir/Passes.h"
 
+#include "mlir/Dialect/Affine/IR/AffineOps.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
+#include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
+#include "mlir/Dialect/Linalg/IR/Linalg.h"
+#include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/Dialect/SCF/IR/SCF.h"
+#include "mlir/IR/BuiltinDialect.h"
 #include "mlir/Transforms/DialectConversion.h"
 #include "mlir/IR/IRMapping.h"
 
@@ -142,9 +147,7 @@ namespace
         {
         }
 
-        LogicalResult matchAndRewrite(Operation *op,
-                                      PatternRewriter &rewriter) const override
-        {
+        LogicalResult matchAndRewrite(Operation *op, PatternRewriter &rewriter) const override {
             Location loc = op->getLoc();
 
             // Determine the name of the kernel function to call by convention
@@ -153,21 +156,12 @@ namespace
             std::stringstream callee;
 
             // check CUDA support and valid device ID
-//            auto attr = op->getAttr("cuda_device");
-//            if(attr && attr.dyn_cast<IntegerAttr>().getInt() > -1) {
             if(op->hasAttr("cuda_device")) {
-//                op->hasTrait<mlir::OpTrait::CUDASupport>() &&
-//                auto attr = op->getAttr("cuda_device");
-//                if(attr && attr.dyn_cast<IntegerAttr>().getInt() > -1) {
-//                if(attr.dyn_cast<IntegerAttr>().getInt() > -1)
-                    callee << "CUDA";
-//                else
-//                    std::cout << "attr = null: " << op->getName().getStringRef().str() << std::endl;
+                callee << "CUDA";
             }
-	    else if(op->hasAttr("fpgaopencl_device")) {
-		 callee << "FPGAOPENCL";
-	    }
-		    
+            else if(op->hasAttr("fpgaopencl_device")) {
+                callee << "FPGAOPENCL";
+            }
 
             callee << '_' << op->getName().stripDialect().data();
 
@@ -221,6 +215,18 @@ namespace
                     // of the variadic pack ops. Should be changed when reworking the lowering to kernels.
                     if(llvm::dyn_cast<daphne::GroupOp>(op) && idx >= operandTypes.size()) {
                         callee << "__char_variadic__size_t";
+                        auto cvpOp = rewriter.create<daphne::CreateVariadicPackOp>(
+                                loc,
+                                daphne::VariadicPackType::get(
+                                        rewriter.getContext(),
+                                        daphne::StringType::get(rewriter.getContext())
+                                ),
+                                rewriter.getI64IntegerAttr(0)
+                        );
+                        newOperands.push_back(cvpOp);
+                        newOperands.push_back(rewriter.create<daphne::ConstantOp>(
+                                loc, rewriter.getIndexType(), rewriter.getIndexAttr(0))
+                        );
                         continue;
                     } else {
                         callee << "__" << CompilerUtils::mlirTypeToCppTypeName(operandTypes[idx], generalizeInputTypes);
@@ -375,6 +381,7 @@ namespace
 
             // Inject the current DaphneContext as the last input parameter to
             // all kernel calls, unless it's a CreateDaphneContextOp.
+
             if(!llvm::isa<daphne::CreateDaphneContextOp>(op))
                 newOperands.push_back(dctx);
 
@@ -505,8 +512,12 @@ void RewriteToCallKernelOpPass::runOnOperation()
     // Specification of (il)legal dialects/operations. All DaphneIR operations
     // but those explicitly marked as legal will be replaced by CallKernelOp.
     ConversionTarget target(getContext());
-    target.addLegalDialect<arith::ArithDialect, LLVM::LLVMDialect, scf::SCFDialect>();
-    target.addLegalOp<ModuleOp, func::FuncOp>();
+    target.addLegalDialect<mlir::AffineDialect, LLVM::LLVMDialect,
+                           scf::SCFDialect, memref::MemRefDialect,
+                           mlir::linalg::LinalgDialect,
+                           mlir::arith::ArithDialect, mlir::BuiltinDialect>();
+
+    target.addLegalOp<ModuleOp, func::FuncOp, func::CallOp, func::ReturnOp>();
     target.addIllegalDialect<daphne::DaphneDialect>();
     target.addLegalOp<
             daphne::ConstantOp,
@@ -515,6 +526,8 @@ void RewriteToCallKernelOpPass::runOnOperation()
             daphne::CreateVariadicPackOp,
             daphne::StoreVariadicPackOp,
             daphne::VectorizedPipelineOp,
+            scf::ForOp,
+            memref::LoadOp,
             daphne::GenericCallOp,
             daphne::MapOp
     >();

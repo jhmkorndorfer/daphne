@@ -39,7 +39,6 @@ void ConfigParser::readUserConfig(const std::string& filename, DaphneUserConfig&
     std::ifstream ifs(filename);
     auto jf = nlohmann::json::parse(ifs);
 
-//try {
     checkAnyUnexpectedKeys(jf, filename);   // raise an error if the config JSON file contains any unexpected keys
 
     if (keyExists(jf, DaphneConfigJsonParams::USE_CUDA_))
@@ -52,6 +51,8 @@ void ConfigParser::readUserConfig(const std::string& filename, DaphneUserConfig&
         config.use_ipa_const_propa = jf.at(DaphneConfigJsonParams::USE_IPA_CONST_PROPA).get<bool>();
     if (keyExists(jf, DaphneConfigJsonParams::USE_PHY_OP_SELECTION))
         config.use_phy_op_selection = jf.at(DaphneConfigJsonParams::USE_PHY_OP_SELECTION).get<bool>();
+    if (keyExists(jf, DaphneConfigJsonParams::USE_MLIR_CODEGEN))
+        config.use_mlir_codegen = jf.at(DaphneConfigJsonParams::USE_MLIR_CODEGEN).get<bool>();
     if (keyExists(jf, DaphneConfigJsonParams::CUDA_FUSE_ANY))
         config.cuda_fuse_any = jf.at(DaphneConfigJsonParams::CUDA_FUSE_ANY).get<bool>();
     if (keyExists(jf, DaphneConfigJsonParams::VECTORIZED_SINGLE_QUEUE))
@@ -80,6 +81,8 @@ void ConfigParser::readUserConfig(const std::string& filename, DaphneUserConfig&
         config.explain_vectorized = jf.at(DaphneConfigJsonParams::EXPLAIN_VECTORIZED).get<bool>();
     if (keyExists(jf, DaphneConfigJsonParams::EXPLAIN_OBJ_REF_MGNT))
         config.explain_obj_ref_mgnt = jf.at(DaphneConfigJsonParams::EXPLAIN_OBJ_REF_MGNT).get<bool>();
+    if (keyExists(jf, DaphneConfigJsonParams::EXPLAIN_MLIR_CODEGEN))
+        config.explain_mlir_codegen = jf.at(DaphneConfigJsonParams::EXPLAIN_MLIR_CODEGEN).get<bool>();
     if (keyExists(jf, DaphneConfigJsonParams::TASK_PARTITIONING_SCHEME)) {
         config.taskPartitioningScheme = jf.at(DaphneConfigJsonParams::TASK_PARTITIONING_SCHEME).get<SelfSchedulingScheme>();
         if (config.taskPartitioningScheme == SelfSchedulingScheme::INVALID) {
@@ -113,8 +116,9 @@ void ConfigParser::readUserConfig(const std::string& filename, DaphneUserConfig&
                         val.at("format")}));
             }
             else {
-                spdlog::error("Not handling log config entry {}", key);
+                spdlog::error("Not handling unknown/malformed log config entry {}", key);
                 for (const auto&[key2, val2]: val.items()) {
+                    // not using spdlog::get() here as loggers are most likely not configured yet
                     spdlog::error(key2);
                     spdlog::error(val2);
                 }
@@ -122,13 +126,6 @@ void ConfigParser::readUserConfig(const std::string& filename, DaphneUserConfig&
 
         }
     }
-//} catch (const nlohmann::detail::type_error& ex) {
-//    std::cerr << ex.what() << std::endl;
-//} catch (const nlohmann::detail::out_of_range& ex) {
-//    std::cerr << ex.what() << std::endl;
-//} catch (const std::invalid_argument& ex) {
-//    std::cerr << ex.what() << std::endl;
-//}
 }
 
 bool ConfigParser::keyExists(const nlohmann::json& j, const std::string& key) {

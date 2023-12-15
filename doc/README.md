@@ -1,7 +1,5 @@
 # Overview
 
-![DAPHNE Logo](assets/logo_medium.png)
-
 - [Quickstart](/doc/Quickstart.md)
 - [Getting Started](/doc/GettingStarted.md)
 
@@ -32,7 +30,7 @@
 - [Extending the DAPHNE Distributed Runtime](/doc/development/ExtendingDistributedRuntime.md)
 - [Building DAPHNE with the build.sh script](/doc/development/BuildingDaphne.md)
 - [Logging in DAPHNE](/doc/development/Logging.md)
-- [Profiling in DAPHNE](/doc/development/Profling.md)
+- [Profiling in DAPHNE](/doc/development/Profiling.md)
 
 ### Source Code Documentation
 

@@ -25,7 +25,6 @@
 #include <memory>
 #include <vector>
 #include <utility>
-#include <iostream>
 
 using namespace mlir;
 
@@ -158,9 +157,14 @@ class InferencePass : public PassWrapper<InferencePass, OperationPass<func::Func
      */
     std::function<WalkResult(Operation*)> walkOp = [&](Operation * op) {
         // Type inference.
-        if(returnsUnknownType(op))
-            daphne::setInferedTypes(op, cfg.partialInferenceAllowed);
-
+        try {
+            if (returnsUnknownType(op))
+                daphne::setInferedTypes(op, cfg.partialInferenceAllowed);
+        }
+        catch (std::runtime_error& re) {
+            spdlog::error("Exception in {}:{}: \n{}",__FILE__, __LINE__, re.what());
+            signalPassFailure();
+        }
         // Inference of interesting properties.
         bool doShapeInference = cfg.shapeInference && returnsUnknownShape(op);
         bool doSparsityInference = cfg.sparsityInference && returnsUnknownSparsity(op);
@@ -184,7 +188,10 @@ class InferencePass : public PassWrapper<InferencePass, OperationPass<func::Func
                         );
                     // Set the infered shapes on all results of this operation.
                     for(size_t i = 0 ; i < numRes ; i++) {
-                        if(op->getResultTypes()[i].isa<mlir::daphne::MatrixType>()) {
+                        if(
+                            op->getResultTypes()[i].isa<mlir::daphne::MatrixType>() ||
+                            op->getResultTypes()[i].isa<mlir::daphne::FrameType>()
+                        ) {
                             const ssize_t numRows = shapes[i].first;
                             const ssize_t numCols = shapes[i].second;
                             Value rv = op->getResult(i);
@@ -217,7 +224,10 @@ class InferencePass : public PassWrapper<InferencePass, OperationPass<func::Func
                     // Set the inferred sparsities on all results of this operation.
                     for(size_t i = 0 ; i < numRes ; i++) {
                         const double sparsity = sparsities[i];
-                        if(op->getResultTypes()[i].isa<mlir::daphne::MatrixType>()) {
+                        if(
+                            op->getResultTypes()[i].isa<mlir::daphne::MatrixType>() ||
+                            op->getResultTypes()[i].isa<mlir::daphne::FrameType>()
+                        ) {
                             Value rv = op->getResult(i);
                             const Type rt = rv.getType();
                             auto mt = rt.dyn_cast<daphne::MatrixType>();
@@ -458,7 +468,13 @@ public:
 
     void runOnOperation() override {
         func::FuncOp f = getOperation();
-        f.walk<WalkOrder::PreOrder>(walkOp);
+        try {
+            f.walk<WalkOrder::PreOrder>(walkOp);
+        }
+        catch (std::runtime_error& re) {
+            spdlog::error("Exception in {}:{}: \n{}",__FILE__, __LINE__, re.what());
+            return;
+        }
         // infer function return types
         f.setType(FunctionType::get(&getContext(),
             f.getFunctionType().getInputs(),
@@ -503,6 +519,9 @@ public:
             return false;
         });
     }
+
+    StringRef getArgument() const final { return "inference"; }
+    StringRef getDescription() const final { return "TODO"; }
 };
 
 std::unique_ptr<Pass> daphne::createInferencePass(daphne::InferenceConfig cfg) {

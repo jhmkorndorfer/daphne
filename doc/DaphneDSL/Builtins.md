@@ -118,6 +118,21 @@ The following built-in functions all follow the same scheme:
 | **`ln`** | natural logarithm (logarithm of `arg` to the base of *e*) |
 | **`sqrt`** | square root |
 
+### Trigonometric/Hyperbolic
+
+`arg` unit must be radians (conversion: $x^\circ * \frac{\pi}{180^\circ} = y$ radians)
+| function | meaning |
+| ----- | ----- |
+| **`sin`** | sine |
+| **`cos`** | cosine |
+| **`tan`** | tangent |
+| **`asin`** | arc sine  (inverse of sine) |
+| **`acos`** | arc cosine (inverse of cosine) |
+| **`atan`** | arc tangent (inverse of tangent) |
+| **`sinh`** | hyperbolic sine ($\frac{e^\text{arg}-e^\text{ - arg}}{2}$) |
+| **`cosh`** | hyperbolic cosine ($\frac{e^\text{arg}+e^\text{ - arg}}{2}$) |
+| **`tanh`** | hyperbolic tangent ($\frac{\text{sinh arg}}{\text{cosh arg}}$) |
+
 ### Rounding
 
 | function | meaning |
@@ -125,11 +140,6 @@ The following built-in functions all follow the same scheme:
 | **`round`** | round to nearest |
 | **`floor`** | round down |
 | **`ceil`** | round up |
-
-### Trigonometric
-
-The typical trigonometric functions:
-**`sin`**, **`cos`**, **`tan`**, **`sinh`**, **`cosh`**, **`tanh`**, **`asin`**, **`acos`**, **`atan`**
 
 ## Elementwise binary
 
@@ -143,8 +153,8 @@ The built-in functions all follow the same scheme:
   
     Applies the respective binary function (see table below) to the corresponding pairs of a value in the left-hand-side argument `lhs` and the right-hand-side argument `rhs`.
     Regarding the combinations of scalars and matrices, the same broadcasting semantics apply as for binary operations like `+`, `*`, etc. (see the [DaphneDSL Language Reference](/doc/DaphneDSL/LanguageRef.md)).
-  
-Note that DaphneDSL support various other elementwise binary functions via operators in infix notation (see [DaphneDSL](/doc/DaphneDSL/LanguageRef.md)), e.g., `^`, `%`, `*`, `/`, `+`, `-`, `==`, `!=`, `<`, `<=`, `>`, `>=`, `&&`, `||`.
+
+### Arithmetic
 
 | function | operator | meaning |
 | ----- | ----- | ----- |
@@ -230,13 +240,13 @@ The following built-in functions all follow the same scheme:
 | ----- | ----- |
 | **`outerAnd`** | logical conjunction |
 | **`outerOr`** | logical disjunction |
-| **`outerXor`** | logical exclusive disjunction |
+| **`outerXor`** | logical exclusive disjunction *(not supported yet)* |
 
 ### Strings
 
 | function | meaning |
 | ----- | ----- |
-| **`outerConcat`** | string concatenation |
+| **`outerConcat`** | string concatenation *(not supported yet)* |
 
 ### Comparison
 
@@ -263,6 +273,7 @@ The following built-in functions all follow the same scheme:
 - **`agg`**`(arg:matrix, axis:si64)`
 
     Row or column aggregation over a *(n x m)* matrix `arg` using aggregation function `agg` (see table below).
+    
     - `axis` == 0: calculate one aggregate per row; the result is a *(n x 1)* (column) matrix
     - `axis` == 1: calculate one aggregate per column; the result is a *(1 x m)* (row) matrix
 
@@ -282,9 +293,9 @@ The following built-in functions all follow the same scheme:
 The following built-in functions all follow the same scheme:
 
 - **`cumAgg`**`(arg:matrix)`
-  
-  Cumulative aggregation over each column of the matrix `arg`.
-  Returns a matrix of the same shape as `arg`.
+
+    Cumulative aggregation over each column of the matrix `arg`.
+    Returns a matrix of the same shape as `arg`.
 
 | function | meaning |
 | ----- | ------ |
@@ -390,14 +401,14 @@ Note that most of these operations only have a CUDNN-based kernel for GPU execut
 
     Returns the contingency table of two *(n x 1)* column-matrices `ys` and `xs`.
     The resulting matrix `res` consists of `max(ys) + 1` rows and `max(xs) + 1` columns.
-    More precisely, *`res[x, y] `= |{ k | `ys[k, 0]` = y and `xs[k, 0]` = x, 0 ≤ k ≤ n-1 }| * `weight`*.
+    More precisely, *`res[x, y]` = |{ k | `ys[k, 0]` = y and `xs[k, 0]` = x, 0 ≤ k ≤ n-1 }| * `weight`*.
   
     In other words, starting with an all-zero result matrix, `ys` and `xs` can be thought of as lists of `y`/`x`-coordinates which indicate the result matrix's cells whose value shall be increased by `weight`.
     Note that `ys` and `xs` must not contain negative numbers.
   
     The scalar weight is an optional argument and defaults to 1.0.
     The weight also determines the value type of the result.
-    
+
     Moreover, optionally, the result shape in terms of the number of rows and columns can be specified.
     If omited, it defaults to the smallest numbers required to accommodate all given `y`/`x`-coordinates, as expressed above.
     If specified, the result can be either cropped or padded with zeros to the desired shape.
